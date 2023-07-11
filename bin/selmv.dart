@@ -60,6 +60,7 @@ class SelmvCommand implements CatutlCommand {
 
       final String filename = basename(entity.path);
       final String newPath = join(args.output.path, filename);
+      if(!await _removeExisting(newPath)) continue;
 
       await entity.rename(newPath);
 
@@ -67,6 +68,19 @@ class SelmvCommand implements CatutlCommand {
     }
 
     exit(0);
+  }
+
+  Future<bool> _removeExisting(String newPath) async {
+    try {
+      final File file = File(newPath);
+      if (await file.exists())
+        await file.delete();
+    } catch (_) {
+      print('Невозможно перезаписать файл: $newPath');
+      return false;
+    }
+
+    return true;
   }
 
 }
