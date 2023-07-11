@@ -2,50 +2,53 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:args/args.dart';
+import 'package:args/command_runner.dart';
 import 'package:path/path.dart';
 
 import 'catutl.dart';
 
-class SelmvCommand implements CatutlCommand {
-
-  final SelmvParams args = SelmvParams();
+class SelmvCommand extends Command<int> {
 
   @override
-  FutureOr<ArgParser> build() {
-    final parser = ArgParser();
+  String get name => 'selmv';
 
-    parser.addOption(
+
+  @override
+  String get description => 'Moves files matching a regular expression pattern';
+
+  SelmvCommand() {
+    argParser.addOption(
       'input',
       abbr: 'i',
       defaultsTo: Directory.current.path,
       help: 'Folder to copy from',
-      callback: (i) => args.input = i is String ? Directory(i) : Directory.current,
+      callback: (i) => _params.input = i is String ? Directory(i) : Directory.current,
     );
-    parser.addOption(
+    argParser.addOption(
       'output',
       abbr: 'o',
       mandatory: true,
       help: 'Folder to copy to',
-      callback: (o) => args.output = Directory(o!),
+      callback: (o) => _params.output = Directory(o!),
     );
-    parser.addOption(
+    argParser.addOption(
       'pattern',
       abbr: 'p',
       defaultsTo: '\.mp3\$',
       help: 'Regular expression to select files',
-      callback: (p) => args.pattern = p is String ? RegExp(p) : RegExp(r'\.mp3$'),
+      callback: (p) => _params.pattern = p is String ? RegExp(p) : RegExp(r'\.mp3$'),
     );
-
-    return parser;
   }
 
-  @override
-  FutureOr<void> run() async {
-    await args.validate();
+  final SelmvParams _params = SelmvParams();
 
-    final entities = await args.input
+  @override
+  FutureOr<int> run() async {
+    await _params.validate();
+
+    final entities = await _params.input
         .list()
-        .where((f) => args.pattern.hasMatch(f.path))
+        .where((f) => _params.pattern.hasMatch(f.path))
         .toList();
 
     if(entities.isEmpty) {
@@ -53,13 +56,13 @@ class SelmvCommand implements CatutlCommand {
       exit(1);
     }
 
-    print('Moving ${entities.length} files to ${args.output}:\n');
+    print('Moving ${entities.length} files to ${_params.output}:\n');
 
     for (FileSystemEntity entity in entities) {
-      if (entity is! File) return;
+      if (entity is! File) continue;
 
       final String filename = basename(entity.path);
-      final String newPath = join(args.output.path, filename);
+      final String newPath = join(_params.output.path, filename);
       if(!await _removeExisting(newPath)) continue;
 
       await entity.rename(newPath);
@@ -67,7 +70,7 @@ class SelmvCommand implements CatutlCommand {
       print('\t$filename');
     }
 
-    exit(0);
+    return 0;
   }
 
   Future<bool> _removeExisting(String newPath) async {
